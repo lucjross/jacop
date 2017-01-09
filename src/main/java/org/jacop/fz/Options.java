@@ -32,6 +32,7 @@
 package org.jacop.fz;
 
 import java.io.FileInputStream;
+import org.jacop.floats.core.FloatDomain;
 
 /**
  * 
@@ -43,20 +44,35 @@ import java.io.FileInputStream;
  */
 public class Options {
 
-	String[] argument;
+    String[] argument;
 	
-	FileInputStream file;
+    FileInputStream file;
 
     String fileName;
 	
     boolean all = false, verbose = false;
 	
-	boolean statistics = false;
+    boolean statistics = false;
 	
-	int time_out = 0;
-	
-	int number_solutions = -1;
+    int time_out = 0;
+    
+    int number_solutions = -1;
 
+    boolean interval = false;
+
+    boolean precisionDefined = false;
+    double precision;
+
+    boolean boundConsistency = false;
+
+    boolean runSearch = true;
+
+    boolean use_sat = false;
+
+    boolean complementary_search = false;
+
+    boolean debug = false;
+    
 	/**
 	 * It constructs an Options object and parses all the parameters/options provided 
 	 * to flatzinc to jacop parser.
@@ -86,7 +102,17 @@ public class Options {
 						"        <value> - time in second.\n"+
 						"    -s, --statistics\n"+
 						"    -n <value>, --num-solutions <value>\n"+
-						"        <value> - limit on solution number.\n"
+						"        <value> - limit on solution number.\n"+
+						"    -b, --bound - use bounds consistency whenever possible;\n" +
+						"        override annotation \":: domain\" and select constraints\n"+
+						"        implementing bounds consistency (default false).\n"+
+						"    -sat use SAT solver for boolean constraints.\n" +
+						"    -cs, --complementary-search - try to gather all model, non-introduced\n" +
+						"         variables to define the final or default search, instead of using\n" +
+						"         output variables only.\n" +
+						"    -i, --interval print intervals instead of values for floating variables\n"+
+						"    -p <value>, --precision <value> defines precision for floating operations\n"+
+						"        overrides precision definition in search annotation."
 				);
 				System.exit(0);
 			}
@@ -110,6 +136,10 @@ public class Options {
 					statistics = true;
 					i++;
 				}
+				else if (args[i].equals("-sat")) {
+					use_sat = true;
+					i++;
+				}
 				else if (args[i].equals("-n") || args[i].equals("--num-solutions")) {
 					number_solutions = Integer.parseInt(args[++i]);
 					if (number_solutions > 1) 
@@ -120,9 +150,36 @@ public class Options {
 					    verbose = true;
 					i++;
 				}
-				else {
-					System.out.println("fz2jacop: not recognized option "+ args[i]);
+				else if (args[i].equals("-i") || args[i].equals("--interval")) {
+				    interval = true;
+				    i++;
+				}
+				else if (args[i].equals("-p") || args[i].equals("--precision")) {
+				        precisionDefined = true;
+					precision = Double.parseDouble(args[++i]);
+					if (precision >= 0)
+					    FloatDomain.setPrecision(precision);
+					else {
+					    precision = FloatDomain.precision();
+					    System.err.println("%% Precisison parameter not correct; using default precision " + precision);
+					}
 					i++;
+				}
+				else if (args[i].equals("-b") || args[i].equals("--bound")) {
+				    boundConsistency = true;
+				    i++;
+				}
+				else if (args[i].equals("-cs") || args[i].equals("--complementary-search")) {
+				    complementary_search = true;
+				    i++;
+				}
+				else if (args[i].equals("-debug") ) {
+				    debug = true;
+				    i++;
+				}
+				else {
+				    System.out.println("fz2jacop: not recognized option "+ args[i]);
+				    i++;
 				}
 			}	    
 
@@ -195,7 +252,80 @@ public class Options {
 	public int getNumberSolutions() {
 		return number_solutions;
 	}
-	
+
+	/**
+	 * It returns true if the interval print mode has been requested.
+	 * @return true if the interval print mode is active, false otherwise. 
+	 */
+	public boolean getInterval() {
+		return interval;
+	}
+
+	/**
+	 * It defines whether to run the solver. 
+	 */
+	public void doNotRunSearch() {
+	    this.runSearch = false;
+	}
+
+	/**
+	 * It returns true if the search must be run and false otherwise.
+	 * @return true if run search, false otherwise. 
+	 */
+	public boolean runSearch() {
+		return runSearch;
+	}
+
+
+	/**
+	 * It defines whether to use bound consistency
+	 * @return true if bound consistency prefered, false otherwise (defult). 
+	 */
+	public boolean getBoundConsistency() {
+		return boundConsistency;
+	}
+
+       /**
+	 * It returns precision defined in the command line
+	 * @return precision. 
+	 */
+	public double getPrecision() {
+		return precision;
+	}
+
+	/**
+	 * It informs whether precision is defined. 
+	 * @return true if precision for floating point solver is defined
+	 */
+	public boolean precision() {
+		return precisionDefined;
+	}
+
+    	/**
+	 * It defines whether sat is used. 
+	 * @return true sat is used, false otherwise
+	 */
+	public boolean useSat() {
+		return use_sat;
+	}
+
+    	/**
+	 * It defines whether to use debug information print-out. 
+	 * @return true if debugging information is printed, false otherwise
+	 */
+	public boolean debug() {
+		return debug;
+	}
+
+    	/**
+	 * It defines wheter additional search should use output variables only (false, default). 
+	 * or should try to collect all non introduced variables (true).
+	 * @return additional search should use output variables only (false, default). 
+	 * or should try to collect all non introduced variables (true)
+	 */
+        public boolean complementarySearch() {
+	    return complementary_search;
+	}
 }
 
 

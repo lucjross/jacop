@@ -42,7 +42,10 @@ public class RunWhenShuttingDown extends Thread {
 
     public void run() {
 
-	parser.solver.printStatistics(true);
+	if (! parser.options.getAll() && parser.solver.lastSolution != null)
+	    System.out.println(parser.solver.lastSolution);
+	
+	parser.solver.printStatisticsIterrupt();
 
     }
     

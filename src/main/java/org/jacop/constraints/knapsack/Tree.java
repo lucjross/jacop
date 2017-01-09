@@ -122,7 +122,7 @@ public class Tree {
 
 	/**
 	 * It creates a tree by making a shallow copy.
-	 * @param tree
+	 * @param tree tree to be constructed
 	 */
 	public Tree(Tree tree) {
 		this.root = tree.root;
@@ -304,7 +304,7 @@ public class Tree {
 	
 		availableWeightOfCriticalItem = criticalLeaf.getWSum() - takenWeightOfCriticalItem;
 		
-		obtainedProfit += ((criticalLeaf.getPSum() * takenWeightOfCriticalItem) / (double)  criticalLeaf.getWSum());
+		obtainedProfit += (((double)criticalLeaf.getPSum() * (double)takenWeightOfCriticalItem) / (double)  criticalLeaf.getWSum());
 	
 		optimalProfit = obtainedProfit;
 	

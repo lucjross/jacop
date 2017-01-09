@@ -56,8 +56,8 @@ public class Parser {
     Store store = new Store();
     Tables dict = new Tables(store);
     VariablesParameters cg = new VariablesParameters();
-    Constraints cc = new Constraints(store);
-    Solve solver = new Solve(store);
+    Constraints cc = new Constraints(store, dict);
+    Solve solver = new Solve(store, cc.sat);
     Options options;
 
     void setOptions(Options opt) {
@@ -66,6 +66,10 @@ public class Parser {
 
     Store getStore() {
 	return store;
+    }
+
+    Tables getTables() {
+	return dict;
     }
 }
 PARSER_END(Parser)
@@ -195,7 +199,16 @@ void model() #model:
     constraint_items()
     model_end()
     <EOF>
-// 	{jjtThis.dump("");}
+	{//jjtThis.dump("");
+	    // print debug information
+	    // if (options.debug())
+	    // 	System.out.println(dict);
+	    
+	    // generate constraints
+	    cc.generateAllConstraints(jjtThis, options);
+	    // search
+	    solver.solveModel(jjtThis, dict, options);
+	}
 }
 
 // pred_decl_items : pred_decl_items pred_decl_item ';'
@@ -216,7 +229,7 @@ void var_decl_items() #VarDeclItems:
 {
     ( var_decl_item() <SC> )*
  	{   //jjtThis.dump("");
-	    jjtThis.removeChildren();
+	    // jjtThis.removeChildren();
 	    solver.setNumberBoolVariables(cg.numberBooleanVariables);
 	}
 //             	{ System.out.println(dict); }
@@ -231,9 +244,9 @@ void constraint_items() #ConstraintItems:
     ( constraint_item() <SC> )*
  	{  //jjtThis.dump("");
 
-	    cc.poseDelayedConstraints();
+	    // cc.poseDelayedConstraints();
 
-	    jjtThis.removeChildren();
+	    // jjtThis.removeChildren();
 	}
 }
  
@@ -277,20 +290,20 @@ void var_decl_item() #VarDeclItem:
  	{ 
 	    jjtThis.setKind(0); jjtThis.setId(t.image); 
 	    cg.generateVariables(jjtThis, dict, store);
-	    jjtThis.removeChildren();
+	    // jjtThis.removeChildren();
 	}
 
    | non_array_ti_expr_tail() <COLON> t=ident_anns() <ASGN> non_array_flat_expr() 
 	 { jjtThis.setKind(1); 
 	   jjtThis.setId(t.image);
 	   cg.generateParameters(jjtThis, dict);
-	   jjtThis.removeChildren();
+	   // jjtThis.removeChildren();
 	 }
 
    | <ARRAY> <LBOX> t1=<INT_LITERAL> <DOTDOT> t2=<INT_LITERAL> <RBOX> <OF> array_decl_tail(jjtThis)
 	  {   jjtThis.setIndexes(Integer.parseInt(t1.image), Integer.parseInt(t2.image)); 
 	      cg.generateArray(jjtThis, dict, store);
-	      jjtThis.removeChildren();
+	      // jjtThis.removeChildren();
 	  }
 }
 
@@ -351,8 +364,8 @@ void constraint_item() #Constraint:
 {
     <CONSTRAINT> constraint_elem() annotations()
  	{  	// jjtThis.dump(""); 
-	        cc.generateConstraints(jjtThis, dict);
-	        jjtThis.removeChildren();
+	    cc.generateAlias(jjtThis);
+	    // jjtThis.removeChildren();
         }
 }
 
@@ -387,7 +400,7 @@ void solve_item() #SolveItem:
 {
     <SOLVE> annotations() solve_kind()
 	{
-	    solver.search(jjtThis, dict, options);
+	    // solver.search(jjtThis, dict, options);
 	}
 }
 
@@ -551,14 +564,20 @@ void int_ti_expr_tail() #IntTiExprTail:
 //     FLOAT
 //   | FLOAT_LITERAL DOTDOT FLOAT_LITERAL
 
-void float_ti_expr_tail() :
-{}
+void float_ti_expr_tail() #FloatTiExprTail:
+{//type 0=int; 1=interval;
+    Token t1, t2;
+}
 {
     (
-     <FLOAT>
-     | <FLOAT_LITERAL> <DOTDOT> <FLOAT_LITERAL>
+     <FLOAT> {jjtThis.setType(0);}
+     | t1=<FLOAT_LITERAL> <DOTDOT> t2=<FLOAT_LITERAL>
+	  {
+	      jjtThis.setType(1); 
+	      jjtThis.setLowHigh(Double.parseDouble(t1.image), Double.parseDouble(t2.image));
+	  }
      )
-	{ System.err.println("Float not supported; compilation aborted."); System.exit(0); }
+	// { System.err.println("Float not supported; compilation aborted."); System.exit(0); }
 }
 
 // set_ti_expr_tail:
@@ -682,7 +701,7 @@ void scalar_flat_expr() #ScalarFlatExpr:
 	  jjtThis.setInt(val);
 	} 
     | t = <INT_LITERAL> { jjtThis.setType(0); jjtThis.setInt(Integer.parseInt(t.image)); } 
-    | t = <FLOAT_LITERAL> { jjtThis.setType(5); } 
+    | t = <FLOAT_LITERAL> { jjtThis.setType(5); jjtThis.setFloat(Double.parseDouble(t.image));} 
     | t = <STRING_LITERAL> { jjtThis.setType(4); } 
 }
 

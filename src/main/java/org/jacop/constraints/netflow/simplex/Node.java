@@ -35,7 +35,7 @@ package org.jacop.constraints.netflow.simplex;
  *  A node (vertex) in the network.
  *
  * @author Robin Steiger and Radoslaw Szymanek
- * @version 4.0
+ * @version 4.2
  * 
  */
 
@@ -89,7 +89,7 @@ public final class Node {
 	 * 
 	 * @param that
 	 *            another node
-	 * @return the least common ancestor of this & that
+	 * @return the least common ancestor of this {@literal &} that
 	 */
 	public Node lca(Node that) {
 		Node i = this;

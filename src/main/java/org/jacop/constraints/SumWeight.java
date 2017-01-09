@@ -42,14 +42,17 @@ import org.jacop.core.Var;
 
 /**
  * SumWeight constraint implements the weighted summation over several
- * Variable's . It provides the weighted sum from all Variable's on the list.
- * The weights must be positive integers.
+ * variables . It provides the weighted sum from all variables on the list.
+ * The weights are integers.
  * 
  * @author Krzysztof Kuchcinski and Radoslaw Szymanek
  * @version 3.1
  */
 
-public class SumWeight extends Constraint {
+/**
+ * @deprecated  As of release 4.3.1 replaced by LinearInt constraint.
+ */
+@Deprecated public class SumWeight extends Constraint {
 
 	static int counter = 1;
 
@@ -75,9 +78,9 @@ public class SumWeight extends Constraint {
 	public static String[] xmlAttributes = {"list", "weights", "sum"};
 
 	/**
-	 * @param list
-	 * @param weights
-	 * @param sum
+	 * @param list the list of varibales
+	 * @param weights the list of weights
+	 * @param sum the resulting sum
 	 */
 	public SumWeight(IntVar[] list, int[] weights, IntVar sum) {
 

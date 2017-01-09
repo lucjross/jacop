@@ -43,9 +43,10 @@ import org.jacop.core.Var;
  * be enforced by search.
  * 
  * @author Radoslaw Szymanek and Krzysztof Kuchcinski
- * @version 4.0
+ * @version 4.4
  */
 
+@SuppressWarnings("unchecked")
 public class SimpleSelect<T extends Var> implements SelectChoicePoint<T> {
 
 	static final boolean debugAll = false;
@@ -55,11 +56,11 @@ public class SimpleSelect<T extends Var> implements SelectChoicePoint<T> {
 	 */
 	public boolean inputOrderTieBreaking = true;
 
-	T[] searchVariables;
+	public T[] searchVariables;
 
-	ComparatorVariable<T> variableOrdering;
+	public ComparatorVariable<T> variableOrdering;
 
-	ComparatorVariable<T> tieBreakingComparator = null;
+	public ComparatorVariable<T> tieBreakingComparator = null;
 
 	Indomain<T> valueOrdering;
 

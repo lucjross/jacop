@@ -13,6 +13,9 @@ import org.jacop.search._
 //import org.jacop.set.core._
 import org.jacop.set.constraints._
 import org.jacop.set.search._
+import org.jacop.floats.core.FloatDomain
+import org.jacop.floats.constraints._
+import org.jacop.floats.search._
 
 import _root_.scala.reflect._
 
@@ -48,6 +51,21 @@ package object scala {
   implicit class IntSeq(val peer: Array[Int]) extends AnyVal {
     def apply(index: IntVar) : IntVar = intAt(index, peer)
   }
+
+  implicit class FloatSeq(val peer: Array[Double]) extends AnyVal {
+    def apply(index: IntVar) : FloatVar = floatAt(index, peer)
+  }
+
+/**
+* Sets precision for floating point solver
+*
+* @param p precision
+*/
+  // =============== Precision for floating point solver ===============
+
+  def setPrecision(p: Double) = FloatDomain.setPrecision(p)
+
+  def precision() = FloatDomain.precision()
 
   // =============== Global constraints ===============
 
@@ -86,45 +104,65 @@ package object scala {
   }
 
 /**
-* Wrapper for [[org.jacop.constraints.Sum]].
+* Wrapper for [[org.jacop.constraints.SumInt]] and [[org.jacop.constraints.SumBool]].
 *
 * @param res array of variables to be summed up. 
 * @param result summation result. 
 */
   def sum[T <: org.jacop.core.IntVar](res: List[T], result: IntVar)(implicit m: ClassTag[T])  {
-     val c = new Sum(res.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], result)
+    val c = if (boolSum(res) ) new SumBool(impModel, res.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], "==", result)
+	    else new SumInt(impModel, res.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], "==", result)
      if (trace) println(c)
      impModel.impose( c )
    }
 
 /**
-* Wrapper for [[org.jacop.constraints.Sum]].
+* Wrapper for [[org.jacop.constraints.Sum]] and [[org.jacop.constraints.SumBool]].
 *
 * @param res array of variables to be summed up. 
 * @return summation result. 
 */
   def sum[T <: org.jacop.core.IntVar](res: List[T])(implicit m: ClassTag[T]) : IntVar = {
     val result = new IntVar()
-    val c = new Sum(res.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], result)
+    val c = if (boolSum(res) ) new SumBool(impModel, res.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], "==", result)
+	    else new SumInt(impModel, res.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], "==", result)
     impModel.constr += c
     result
   }
 
+  def boolSum[T <: org.jacop.core.IntVar](vs: List[T]) : Boolean = {
+    for (v <- vs) 
+      if (v.min() < 0 || v.max() > 1)
+	return false
+    return true
+  }
+
+
 /**
-* Wrapper for [[org.jacop.constraints.SumWeight]].
+* Wrapper for [[org.jacop.constraints.LinearInt]].
 *
 * @param res array of variables to be summed up. 
 * @param w array of weights. 
 * @param result summation result. 
 */
   def weightedSum[T <: org.jacop.core.IntVar](res: List[T], w: Array[Int], result: IntVar)(implicit m: ClassTag[T]) {
-    val c = new SumWeight(res.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], w, result)
+    val vect = new Array[org.jacop.core.IntVar](res.length + 1)
+    val weight = new Array[Int](res.length + 1)
+
+    for ( i <- 0 to (res.length - 1)) {
+      vect(i) = res(i).asInstanceOf[org.jacop.core.IntVar]
+      weight(i) = 1
+    }
+    vect(res.length) = result.asInstanceOf[org.jacop.core.IntVar]
+    weight(res.length) = -1
+
+    val c = new LinearInt(impModel, vect.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], weight, "==", 0)
     if (trace) println(c)
     impModel.impose( c )
   }
 
 /**
-* Wrapper for [[org.jacop.constraints.SumWeight]].
+* Wrapper for [[org.jacop.constraints.LinearInt]].
 *
 * @param res array of variables to be summed up. 
 * @param w array of weights. 
@@ -132,27 +170,47 @@ package object scala {
 */
   def sum[T <: org.jacop.core.IntVar](res: List[T], w: Array[Int])(implicit m: ClassTag[T]) : IntVar = {
     val result = new IntVar()
-    val c = new SumWeight(res.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], w, result)
+    val vect = new Array[org.jacop.core.IntVar](res.length + 1)
+    val weight = new Array[Int](res.length + 1)
+
+    for ( i <- 0 to (res.length - 1)) {
+      vect(i) = res(i).asInstanceOf[org.jacop.core.IntVar]
+      weight(i) = 1
+    }
+    vect(res.length) = result.asInstanceOf[org.jacop.core.IntVar]
+    weight(res.length) = -1
+
+    val c = new LinearInt(impModel, vect.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], weight, "==", 0)
     if (trace) println(c)
     impModel.impose( c )
     result
   }
 
 /**
-* Wrapper for [[org.jacop.constraints.SumWeightDom]].
+* Wrapper for [[org.jacop.constraints.LinearIntDom]].
 *
 * @param res array of variables to be summed up (domain consistency used). 
 * @param w array of weights. 
 * @param result summation result. 
 */
-  def weightedSumDom[T <: org.jacop.core.IntVar](res: List[T], w: Array[Int], result: IntVar)(implicit m: ClassTag[T]) {
-    val c = new SumWeightDom(res.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], w, result)
+  def sumDom[T <: org.jacop.core.IntVar](res: List[T], w: Array[Int], result: IntVar)(implicit m: ClassTag[T]) {
+    val vect = new Array[org.jacop.core.IntVar](res.length + 1)
+    val weight = new Array[Int](res.length + 1)
+
+    for ( i <- 0 to (res.length - 1)) {
+      vect(i) = res(i).asInstanceOf[org.jacop.core.IntVar]
+      weight(i) = 1
+    }
+    vect(res.length) = result.asInstanceOf[org.jacop.core.IntVar]
+    weight(res.length) = -1
+
+    val c = new LinearIntDom(impModel, vect.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], weight, "==", 0)
     if (trace) println(c)
     impModel.impose( c )
   }
 
 /**
-* Wrapper for [[org.jacop.constraints.SumWeightDom]].
+* Wrapper for [[org.jacop.constraints.LinearIntDom]].
 *
 * @param res array of variables to be summed up. 
 * @param w array of weights. 
@@ -160,7 +218,17 @@ package object scala {
 */
   def sumDom[T <: org.jacop.core.IntVar](res: List[T], w: Array[Int])(implicit m: ClassTag[T]) : IntVar = {
     val result = new IntVar()
-    val c = new SumWeightDom(res.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], w, result)
+    val vect = new Array[org.jacop.core.IntVar](res.length + 1)
+    val weight = new Array[Int](res.length + 1)
+
+    for ( i <- 0 to (res.length - 1)) {
+      vect(i) = res(i).asInstanceOf[org.jacop.core.IntVar]
+      weight(i) = 1
+    }
+    vect(res.length) = result.asInstanceOf[org.jacop.core.IntVar]
+    weight(res.length) = -1
+
+    val c = new LinearIntDom(impModel, vect.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], weight, "==", 0)
     if (trace) println(c)
     impModel.impose( c )
     result
@@ -187,7 +255,7 @@ package object scala {
 * @param mx maxumum value. 
 */
   def max[T <: org.jacop.core.IntVar](x: List[T], mx: org.jacop.core.IntVar)(implicit m: ClassTag[T])  {
-    val c = new Max(x.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], mx)
+    val c = new org.jacop.constraints.Max(x.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], mx)
     if (trace) println(c)
     impModel.impose(c)
   }
@@ -199,7 +267,7 @@ package object scala {
 * @param mn minimum value.
 */
   def min[T <: org.jacop.core.IntVar](x: List[T], mn: org.jacop.core.IntVar )(implicit m: ClassTag[T]) {
-    val c = new Min(x.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], mn)
+    val c = new org.jacop.constraints.Min(x.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], mn)
     if (trace) println(c)
     impModel.impose(c)
   }
@@ -212,7 +280,7 @@ package object scala {
 */
   def max[T <: org.jacop.core.IntVar](x: List[T])(implicit m: ClassTag[T]) : IntVar = {
     val result = new IntVar()
-    val c = new Max(x.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], result)
+    val c = new org.jacop.constraints.Max(x.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], result)
     impModel.constr += c
     result
   }
@@ -225,7 +293,7 @@ package object scala {
 */
   def min[T <: org.jacop.core.IntVar](x: List[T])(implicit m: ClassTag[T]) : IntVar = {
     val result = new IntVar()
-    val c = new Min(x.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], result)
+    val c = new org.jacop.constraints.Min(x.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], result)
     impModel.constr += c
     result
   }
@@ -359,6 +427,21 @@ package object scala {
     result
   }
 
+  /** Wrapper for [[org.jacop.floats.constraints.ElementFloat]].
+    *
+    * @param index    index to select element from list of elements.
+    * @param xs       array of integers that can be assigned to values.
+    * @param offset   value of index offset (shift).
+    * @return         the variable yielding the element at the given index
+    */
+  def floatAt(index: IntVar, xs: Array[Double], offset: Int = 0) : FloatVar = {
+    val result  = new FloatVar()
+    val c       = new ElementFloat(index, xs, result, offset)
+    if (trace) println(c)
+    impModel.impose(c)
+    result
+  }
+
 /**
 * Wrapper for [[org.jacop.constraints.Diff2]].
 *
@@ -413,6 +496,17 @@ package object scala {
   }
 
 /**
+* Wrapper for [[org.jacop.constraints.Subcircuit]].
+*
+* @param n array of varibales, which domains define next nodes in the graph.
+*/
+  def subcircuit(n: Array[IntVar])  {
+    val c = new Subcircuit(n.asInstanceOf[Array[org.jacop.core.IntVar]])
+    if (trace) println(c)
+    impModel.impose( c )
+  }
+
+/**
 * Wrapper for [[org.jacop.constraints.Assignment]].
 *
 * @param x array of varibales. 
@@ -457,7 +551,7 @@ package object scala {
 * @param tuples array of tuples allowed to be assigned to variables.
 */
   def table[T <: org.jacop.core.IntVar](list: List[T], tuples: Array[Array[Int]])(implicit m: ClassTag[T]) {
-    val c = new ExtensionalSupportVA(list.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], tuples)
+    val c = new ExtensionalSupportMDD(list.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], tuples)
     if (trace) println(c)
     impModel.impose( c )
   }
@@ -479,7 +573,7 @@ package object scala {
   }
 
 /**
-* Wrapper for [[org.jacop.constraints.binpack.Binpack]].
+* Wrapper for [[org.jacop.constraints.binpacking.Binpacking]].
 *
 * @param bin list containing which bin is assigned to an item. 
 * @param load list of loads for bins.
@@ -502,6 +596,47 @@ package object scala {
     if (trace) println(c)
     impModel.impose( c )
   }
+
+/**
+* Wrapper for [[org.jacop.constraints.BoolClause]].
+*
+* @param x list of positive variables. 
+* @param y list of negative variables.
+*/
+  def clause(x: Array[IntVar], y: Array[IntVar]) {
+    val c = new BoolClause(x.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], y.toArray.asInstanceOf[Array[org.jacop.core.IntVar]])
+    if (trace) println(c)
+    impModel.impose( c )    
+  }
+
+/**
+* Wrapper for [[org.jacop.constraints.ArgMin]].
+*
+* @param  x list of variables. 
+* @return index of minimal value on list x.
+*/
+  def arg_min(x: Array[IntVar]) : IntVar = {
+    val minIndex = new IntVar(1, x.length)
+    val c = new ArgMin(x.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], minIndex)
+    if (trace) println(c)
+    impModel.impose( c )    
+    minIndex
+  }
+
+/**
+* Wrapper for [[org.jacop.constraints.ArgMax]].
+*
+* @param  x list of variables. 
+* @return index of maximal value on list x.
+*/
+  def arg_max(x: Array[IntVar]) : IntVar = {
+    val maxIndex = new IntVar(1, x.length)
+    val c = new ArgMax(x.toArray.asInstanceOf[Array[org.jacop.core.IntVar]], maxIndex)
+    if (trace) println(c)
+    impModel.impose( c )
+    maxIndex
+  }
+
 
   // ================== Decompose constraints
 
@@ -533,6 +668,17 @@ package object scala {
     if (trace) println(c)
     impModel.imposeDecomposition( c )
 }
+
+/**
+* Wrapper for [[org.jacop.constraints.LexOrder]].
+*
+* @param x array of vectors of varibales to be lexicographically ordered.
+*/
+  def lex(x: Array[IntVar], y: Array[IntVar]) {
+    val c = new LexOrder(x.asInstanceOf[Array[org.jacop.core.IntVar]], y.asInstanceOf[Array[org.jacop.core.IntVar]])
+    if (trace) println(c)
+    impModel.impose(c)
+  }
 
 /**
 * Wrapper for [[org.jacop.constraints.Lex]].
@@ -587,7 +733,6 @@ package object scala {
   }
 
   // ================== Logical operations on constraints
-
 
 /**
 * Wrapper for [[org.jacop.constraints.Or]].
@@ -706,6 +851,207 @@ package object scala {
     impModel.impose( c )
   }
 
+  // =============== Floating point constraints ===================
+
+/**
+* Wrapper for [[org.jacop.floats.constraints.AbsPeqR]].
+*
+* @param a FloatVar variable.
+* @return absolute value of the variable.
+*/
+  def abs(a: org.jacop.floats.core.FloatVar) : FloatVar = {
+    val result = new FloatVar()
+    val c = new AbsPeqR(a, result)
+    if (trace) println(c)
+    impModel.impose( c )
+    result
+  }
+
+/**
+* Wrapper for [[org.jacop.floats.constraints.ExpPeqR]].
+*
+* @param a FloatVar variable.
+* @return value of exponential function the variable.
+*/
+  def exp(a: org.jacop.floats.core.FloatVar) : FloatVar = {
+    val result = new FloatVar()
+    val c = new ExpPeqR(a, result)
+    if (trace) println(c)
+    impModel.impose( c )
+    result
+  }
+
+/**
+* Wrapper for [[org.jacop.floats.constraints.LnPeqR]].
+*
+* @param a FloatVar variable.
+* @return value of natural logarithm function the variable.
+*/
+  def ln(a: org.jacop.floats.core.FloatVar) : FloatVar = {
+    val result = new FloatVar()
+    val c = new LnPeqR(a, result)
+    if (trace) println(c)
+    impModel.impose( c )
+    result
+  }
+
+/**
+* Wrapper for [[org.jacop.floats.constraints.SqrtPeqR]].
+*
+* @param a FloatVar variable.
+* @return value of square root function the variable.
+*/
+  def sqrt(a: org.jacop.floats.core.FloatVar) : FloatVar = {
+    val result = new FloatVar()
+    val c = new SqrtPeqR(a, result)
+    if (trace) println(c)
+    impModel.impose( c )
+    result
+  }
+
+/**
+* Wrapper for [[org.jacop.floats.constraints.SinPeqR]].
+*
+* @param a FloatVar variable.
+* @return value of sinus function the variable.
+*/
+  def sin(a: org.jacop.floats.core.FloatVar) : FloatVar = {
+    val result = new FloatVar()
+    val c = new SinPeqR(a, result)
+    if (trace) println(c)
+    impModel.impose( c )
+    result
+  }
+
+/**
+* Wrapper for [[org.jacop.floats.constraints.AsinPeqR]].
+*
+* @param a FloatVar variable.
+* @return value of asinus function the variable.
+*/
+  def asin(a: org.jacop.floats.core.FloatVar) : FloatVar = {
+    val result = new FloatVar()
+    val c = new AsinPeqR(a, result)
+    if (trace) println(c)
+    impModel.impose( c )
+    result
+  }
+
+/**
+* Wrapper for [[org.jacop.floats.constraints.CosPeqR]].
+*
+* @param a FloatVar variable.
+* @return value of cosinus function the variable.
+*/
+  def cos(a: org.jacop.floats.core.FloatVar) : FloatVar = {
+    val result = new FloatVar()
+    val c = new CosPeqR(a, result)
+    if (trace) println(c)
+    impModel.impose( c )
+    result
+  }
+
+/**
+* Wrapper for [[org.jacop.floats.constraints.AcosPeqR]].
+*
+* @param a FloatVar variable.
+* @return value of acosinus function the variable.
+*/
+  def acos(a: org.jacop.floats.core.FloatVar) : FloatVar = {
+    val result = new FloatVar()
+    val c = new AcosPeqR(a, result)
+    if (trace) println(c)
+    impModel.impose( c )
+    result
+  }
+
+/**
+* Wrapper for [[org.jacop.floats.constraints.TanPeqR]].
+*
+* @param a FloatVar variable.
+* @return value of tangent function the variable.
+*/
+  def tan(a: org.jacop.floats.core.FloatVar) : FloatVar = {
+    val result = new FloatVar()
+    val c = new TanPeqR(a, result)
+    if (trace) println(c)
+    impModel.impose( c )
+    result
+  }
+
+/**
+* Wrapper for [[org.jacop.floats.constraints.AtanPeqR]].
+*
+* @param a FloatVar variable.
+* @return value of atangent function the variable.
+*/
+  def atan(a: org.jacop.floats.core.FloatVar) : FloatVar = {
+    val result = new FloatVar()
+    val c = new AtanPeqR(a, result)
+    if (trace) println(c)
+    impModel.impose( c )
+    result
+  }
+
+/**
+* Wrapper for [[org.jacop.floats.constraints.LinearFloat]].
+*
+* @param res array of variables to be summed up. 
+* @return summation result. 
+*/
+ def sum[T <: org.jacop.floats.core.FloatVar](res: List[T])(implicit m: Manifest[T]) : FloatVar = {
+   val result = new FloatVar()
+   val vect = new Array[org.jacop.floats.core.FloatVar](res.length + 1)
+   val w = new Array[Double](res.length + 1)
+
+   for ( i <- 0 to (res.length - 1)) {
+     vect(i) = res(i).asInstanceOf[org.jacop.floats.core.FloatVar]
+     w(i) = 1.0
+   }
+   vect(res.length) = result.asInstanceOf[org.jacop.floats.core.FloatVar]
+   w(res.length) = -1.0
+   val c = new LinearFloat(impModel, vect, w, "==", 0.0)
+    if (trace) println(c)
+   impModel.constr += c
+   result
+ }
+
+/**
+* Wrapper for [[org.jacop.floats.constraints.LinearFloat]].
+*
+* @param res array of variables to be summed up. 
+* @return summation result. 
+*/
+ def sum[T <: org.jacop.floats.core.FloatVar](res: List[T], weight: Array[Double])(implicit m: Manifest[T]) : FloatVar = {
+   val result = new FloatVar()
+   val vect = new Array[org.jacop.floats.core.FloatVar](res.length + 1)
+   val w = new Array[Double](res.length + 1)
+
+   for ( i <- 0 to (res.length - 1)) {
+     vect(i) = res(i).asInstanceOf[org.jacop.floats.core.FloatVar]
+     w(i) = weight(i)
+   }
+   vect(res.length) = result.asInstanceOf[org.jacop.floats.core.FloatVar]
+   w(res.length) = -1.0
+   val c = new LinearFloat(impModel, vect, w, "==", 0.0)
+    if (trace) println(c)
+   impModel.constr += c
+   result
+ }
+
+/**
+* Wrapper for [[org.jacop.floats.constraints.LinearFloat]].
+*
+* @param res array of variables to be summed up. 
+* @return summation result. 
+*/
+ def linear[T <: org.jacop.floats.core.FloatVar](res: List[T], weight: Array[Double], result: Double)(implicit m: Manifest[T]) {
+
+   val c = new LinearFloat(impModel, res.asInstanceOf[Array[org.jacop.floats.core.FloatVar]], weight, "==", result)
+    if (trace) println(c)
+   impModel.constr += c
+ }
+
   // =============== Search methods ===================
 
 /**
@@ -735,6 +1081,9 @@ package object scala {
        label.setSolutionListener(new ScalaSolutionListener[T])
      }
 
+    if (timeOutValue > 0)
+      label.setTimeOut(timeOutValue)
+
      if (limitOnSolutions > 0) {
        label.getSolutionListener().setSolutionLimit(limitOnSolutions)
        label.respectSolutionListenerAdvice=true
@@ -743,6 +1092,43 @@ package object scala {
      label.labeling(impModel, select, cost)
    }
 
+/**
+* Minimization search method.
+*
+* @param select select method defining variable selection and value assignment methods.
+* @param cost Cost variable
+* @return true if solution found and false otherwise.
+*/
+   def minimize[T <: org.jacop.core.Var](select: SelectChoicePoint[T], cost: FloatVar, printSolutions: (() => Unit)*)(implicit m: ClassTag[T]): Boolean = {
+
+     impModel.imposeAllConstraints()
+
+     val label = dfs
+     labels = Array(label)
+
+     printFunctions = new Array(printSolutions.size)
+     if (printSolutions.size > 0) {
+       var i=0
+       for (p <- printSolutions) {
+	 printFunctions(i) = p
+	 i += 1
+       }
+    
+       //label.setSolutionListener(new EmptyListener[T]);
+       label.setPrintInfo(false)
+       label.setSolutionListener(new ScalaSolutionListener[T])
+     }
+
+    if (timeOutValue > 0)
+      label.setTimeOut(timeOutValue)
+
+     if (limitOnSolutions > 0) {
+       label.getSolutionListener().setSolutionLimit(limitOnSolutions)
+       label.respectSolutionListenerAdvice=true
+     }
+
+     label.labeling(impModel, select, cost)
+   }
 
 /**
 * Maximization search method.
@@ -754,6 +1140,22 @@ package object scala {
   def maximize[T <: org.jacop.core.Var](select: SelectChoicePoint[T], cost: IntVar, printSolutions: (() => Unit)*)(implicit m: ClassTag[T]): Boolean = {
 
     val costN = new IntVar("newCost", org.jacop.core.IntDomain.MinInt, org.jacop.core.IntDomain.MaxInt)
+    costN #= -cost
+
+    minimize(select, costN, printSolutions: _*)
+  }
+
+
+/**
+* Maximization search method.
+*
+* @param select select method defining variable selection and value assignment methods.
+* @param cost Cost variable
+* @return true if solution found and false otherwise.
+*/
+  def maximize[T <: org.jacop.core.Var](select: SelectChoicePoint[T], cost: FloatVar, printSolutions: (() => Unit)*)(implicit m: ClassTag[T]): Boolean = {
+
+    val costN = new FloatVar("newCost", org.jacop.core.IntDomain.MinInt, org.jacop.core.IntDomain.MaxInt)
     costN #= -cost
 
     minimize(select, costN, printSolutions: _*)
@@ -1034,6 +1436,15 @@ package object scala {
 */
   def search_split[T <: org.jacop.core.IntVar](vars: List[T], heuristic: ComparatorVariable[T])(implicit m: ClassTag[T]) : SelectChoicePoint[T] = {
     new SplitSelect[T](vars.toArray, heuristic, new IndomainMiddle[T]())
+  }
+
+/**
+* Defines list of variables, their selection method for split search and value selection
+*
+* @return select method for search.
+*/
+  def search_float[T <: org.jacop.floats.core.FloatVar](vars: List[T], heuristic: ComparatorVariable[T])(implicit m: ClassTag[T]) : SelectChoicePoint[T] = {
+    new SplitSelectFloat[T](impModel, vars.toArray, heuristic)
   }
 
 

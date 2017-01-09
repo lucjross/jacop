@@ -44,10 +44,13 @@ import org.jacop.core.Var;
  * the sum from all Variable's on the list.
  * 
  * @author Radoslaw Szymanek and Krzysztof Kuchcinski
- * @version 4.0
+ * @version 4.4
  */
 
-public class Sum extends Constraint {
+/**
+ * @deprecated  As of release 4.3.1 replaced by SumInt constraint.
+ */
+@Deprecated public class Sum extends Constraint {
 
 	static int counter = 1;
 
@@ -79,8 +82,8 @@ public class Sum extends Constraint {
 
 	/**
 	 * It constructs sum constraint which sums all variables and makes it equal to variable sum.
-	 * @param list
-	 * @param sum
+	 * @param list list of variables to be added
+	 * @param sum the resulting sum
 	 */
 	public Sum(IntVar[] list, IntVar sum) {
 		
@@ -98,6 +101,8 @@ public class Sum extends Constraint {
 		
 		System.arraycopy(list, 0, this.list, 0, list.length);
 		numberArgs += list.length;		
+
+		checkForOverflow();
 	}
 
 	/**
@@ -258,6 +263,21 @@ public class Sum extends Constraint {
 		}
 		return (sat && sumAll == sum.min());
 	}
+
+    void checkForOverflow() {
+
+	int sumMin=0, sumMax=0;
+	for (int i=0; i<list.length; i++) {
+	    int n1 = list[i].min();
+	    int n2 = list[i].max();
+
+	    sumMin = add(sumMin, n1);
+	    sumMax = add(sumMax, n2);
+	}
+
+	sumMin = subtract(sumMin, sum.max());
+	sumMax = subtract(sumMax, sum.min());
+    }
 
 	@Override
 	public String toString() {
